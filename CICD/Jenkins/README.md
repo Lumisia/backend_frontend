@@ -9,23 +9,19 @@
 
 ## Required Jenkins Credentials
 
-- `dockerhub-credentials`
-  - Type: Username with password
-  - Usage: Docker image push
-- `kubeconfig-file`
-  - Type: Secret file
-  - Usage: `kubectl apply` and rollout check
-  - The kubeconfig inside this credential must point to `https://192.100.1.10:32639`
+- No Jenkins credentials are required for Docker Hub push when the `dockerhub-cred` Kubernetes secret is already mounted into the Kaniko container.
 
 ## Required Tools On Jenkins Agent
 
-- Docker
-  - Frontend and backend images are built with Dockerfiles.
+- Jenkins Kubernetes plugin
+  - The pipeline launches temporary build pods inside the cluster.
+- Kaniko
+  - The build pod uses `gcr.io/kaniko-project/executor:debug` to build and push images.
 - kubectl
-  - The deployment stage applies the Kubernetes manifests.
+  - The build pod uses `bitnami/kubectl:1.30` for deployment.
 
-The frontend pipeline no longer requires Node.js to be installed directly on the Jenkins host because `npm ci` and `npm run build` are executed inside the Docker image build.
-The backend pipeline also no longer requires Java or Gradle on the Jenkins host because `bootJar` is built inside the backend Docker image build.
+The frontend pipeline no longer requires Node.js on the Jenkins controller because the build runs inside a Kubernetes agent pod.
+The backend pipeline no longer requires Java or Gradle on the Jenkins controller because the build runs inside a Kubernetes agent pod.
 
 ## Target Kubernetes Cluster
 
@@ -33,7 +29,18 @@ The backend pipeline also no longer requires Java or Gradle on the Jenkins host 
 - Target namespace: `chw`
 - Example kubeconfig file: `CICD/Jenkins/kubeconfig.example.yaml`
 
-The Jenkins pipelines verify the kubeconfig server URL before running `kubectl apply`.
+## Required Kubernetes Secrets And RBAC
+
+- Docker Hub pull/push secret in namespace `chw`
+  - Secret name: `dockerhub-cred`
+- Jenkins RBAC manifest
+  - Apply once: `kubectl apply -f CICD/k8s/jenkins-rbac.yaml`
+
+## Notes
+
+- The Jenkinsfiles are written for Jenkins running inside Kubernetes with the Kubernetes plugin.
+- They assume the Jenkins service account name is `jenkins` in namespace `default`.
+- If your Jenkins chart created a different service account, update `serviceAccountName` in both Jenkinsfiles and the subject in `CICD/k8s/jenkins-rbac.yaml`.
 
 ## Replace Before Use
 

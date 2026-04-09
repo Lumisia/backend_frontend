@@ -32,6 +32,8 @@ spec:
       labels:
         app: backend
     spec:
+      imagePullSecrets:
+        - name: dockerhub-cred
       containers:
         - name: backend
           image: lumisia/frontend-backend-api:latest

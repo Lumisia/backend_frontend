@@ -1,13 +1,40 @@
-def runCommand(String unixCommand, String windowsCommand = null) {
-    if (isUnix()) {
-        sh unixCommand
-    } else {
-        bat(windowsCommand ?: unixCommand)
-    }
-}
-
 pipeline {
-    agent any
+    agent {
+        kubernetes {
+            label "frontend-kaniko-${UUID.randomUUID().toString()}"
+            defaultContainer 'node'
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  serviceAccountName: jenkins
+  restartPolicy: Never
+  containers:
+    - name: node
+      image: node:22.17.1-bullseye
+      command: ['cat']
+      tty: true
+    - name: kaniko
+      image: gcr.io/kaniko-project/executor:debug
+      command: ['/busybox/sh', '-c', 'sleep infinity']
+      tty: true
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+    - name: kubectl
+      image: bitnami/kubectl:1.30
+      command: ['cat']
+      tty: true
+  volumes:
+    - name: docker-config
+      secret:
+        secretName: dockerhub-cred
+        items:
+          - key: .dockerconfigjson
+            path: config.json
+"""
+        }
+    }
 
     options {
         timestamps()
@@ -17,9 +44,6 @@ pipeline {
         IMAGE_REPOSITORY = 'lumisia/frontend-board-web'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         K8S_NAMESPACE = 'chw'
-        EXPECTED_K8S_SERVER = 'https://192.100.1.10:32639'
-        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
-        KUBECONFIG_CREDENTIALS_ID = 'kubeconfig-file'
     }
 
     stages {
@@ -29,68 +53,34 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Kaniko Build & Push') {
             steps {
-                script {
-                    runCommand(
-                        "docker build -f CICD/Jenkins/frontend.Dockerfile -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} -t ${IMAGE_REPOSITORY}:latest .",
-                        "docker build -f CICD\\Jenkins\\frontend.Dockerfile -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} -t ${IMAGE_REPOSITORY}:latest ."
-                    )
-                }
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    script {
-                        runCommand(
-                            """
-                            echo "\$DOCKER_PASSWORD" | docker login -u "\$DOCKER_USERNAME" --password-stdin
-                            docker push ${IMAGE_REPOSITORY}:${IMAGE_TAG}
-                            docker push ${IMAGE_REPOSITORY}:latest
-                            docker logout
-                            """.stripIndent().trim(),
-                            """
-                            echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin
-                            docker push ${IMAGE_REPOSITORY}:${IMAGE_TAG}
-                            docker push ${IMAGE_REPOSITORY}:latest
-                            docker logout
-                            """.stripIndent().trim()
-                        )
-                    }
+                container('kaniko') {
+                    sh """
+                        /kaniko/executor \
+                          --context="${WORKSPACE}" \
+                          --dockerfile="${WORKSPACE}/CICD/Jenkins/frontend.Dockerfile" \
+                          --destination="${IMAGE_REPOSITORY}:${IMAGE_TAG}" \
+                          --destination="${IMAGE_REPOSITORY}:latest" \
+                          --single-snapshot \
+                          --use-new-run \
+                          --cache=true \
+                          --snapshotMode=redo
+                    """
                 }
             }
         }
 
         stage('Deploy To Kubernetes') {
             steps {
-                withCredentials([file(credentialsId: env.KUBECONFIG_CREDENTIALS_ID, variable: 'KUBECONFIG_FILE')]) {
-                    script {
-                        runCommand(
-                            """
-                            CURRENT_SERVER=\$(kubectl --kubeconfig="\$KUBECONFIG_FILE" config view --minify -o jsonpath='{.clusters[0].cluster.server}')
-                            if [ "\$CURRENT_SERVER" != "${EXPECTED_K8S_SERVER}" ]; then
-                              echo "Unexpected Kubernetes server: \$CURRENT_SERVER"
-                              exit 1
-                            fi
-                            kubectl --kubeconfig="\$KUBECONFIG_FILE" cluster-info
-                            kubectl --kubeconfig="\$KUBECONFIG_FILE" apply -f CICD/k8s/namespace.yaml
-                            kubectl --kubeconfig="\$KUBECONFIG_FILE" apply -f CICD/k8s/frontend.yaml
-                            kubectl --kubeconfig="\$KUBECONFIG_FILE" set image deployment/frontend frontend=${IMAGE_REPOSITORY}:${IMAGE_TAG} -n ${K8S_NAMESPACE}
-                            kubectl --kubeconfig="\$KUBECONFIG_FILE" rollout status deployment/frontend -n ${K8S_NAMESPACE} --timeout=180s
-                            """.stripIndent().trim(),
-                            """
-                            for /f %%i in ('kubectl --kubeconfig="%KUBECONFIG_FILE%" config view --minify -o jsonpath="{.clusters[0].cluster.server}"') do set CURRENT_SERVER=%%i
-                            if /I not "%CURRENT_SERVER%"=="${EXPECTED_K8S_SERVER}" exit /b 1
-                            kubectl --kubeconfig="%KUBECONFIG_FILE%" cluster-info
-                            kubectl --kubeconfig="%KUBECONFIG_FILE%" apply -f CICD\\k8s\\namespace.yaml
-                            kubectl --kubeconfig="%KUBECONFIG_FILE%" apply -f CICD\\k8s\\frontend.yaml
-                            kubectl --kubeconfig="%KUBECONFIG_FILE%" set image deployment/frontend frontend=${IMAGE_REPOSITORY}:${IMAGE_TAG} -n ${K8S_NAMESPACE}
-                            kubectl --kubeconfig="%KUBECONFIG_FILE%" rollout status deployment/frontend -n ${K8S_NAMESPACE} --timeout=180s
-                            """.stripIndent().trim()
-                        )
-                    }
+                container('kubectl') {
+                    sh """
+                        kubectl version --client
+                        kubectl get namespace "${K8S_NAMESPACE}" >/dev/null 2>&1 || kubectl apply -f "${WORKSPACE}/CICD/k8s/namespace.yaml"
+                        kubectl apply -f "${WORKSPACE}/CICD/k8s/frontend.yaml"
+                        kubectl set image deployment/frontend frontend="${IMAGE_REPOSITORY}:${IMAGE_TAG}" -n "${K8S_NAMESPACE}"
+                        kubectl rollout status deployment/frontend -n "${K8S_NAMESPACE}" --timeout=180s
+                    """
                 }
             }
         }
