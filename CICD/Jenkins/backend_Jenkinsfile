@@ -16,7 +16,7 @@ pipeline {
     environment {
         IMAGE_REPOSITORY = 'lumisia/frontend-backend-api'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        K8S_NAMESPACE = 'board-app'
+        K8S_NAMESPACE = 'chw'
         EXPECTED_K8S_SERVER = 'https://192.100.1.10:32639'
         DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
         KUBECONFIG_CREDENTIALS_ID = 'kubeconfig-file'

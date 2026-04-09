@@ -30,6 +30,7 @@ The backend pipeline also no longer requires Java or Gradle on the Jenkins host 
 ## Target Kubernetes Cluster
 
 - Expected API server: `https://192.100.1.10:32639`
+- Target namespace: `chw`
 - Example kubeconfig file: `CICD/Jenkins/kubeconfig.example.yaml`
 
 The Jenkins pipelines verify the kubeconfig server URL before running `kubectl apply`.

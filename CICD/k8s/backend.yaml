@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: backend-config
-  namespace: board-app
+  namespace: chw
 data:
   DB_SERVER: org.mariadb.jdbc.Driver
   DB_URL: jdbc:mariadb://db:3306/web
@@ -11,7 +11,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: backend-secret
-  namespace: board-app
+  namespace: chw
 type: Opaque
 stringData:
   DB_ID: root
@@ -21,7 +21,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
-  namespace: board-app
+  namespace: chw
 spec:
   replicas: 1
   selector:
@@ -65,7 +65,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: backend
-  namespace: board-app
+  namespace: chw
 spec:
   type: ClusterIP
   selector:
