@@ -1,0 +1,63 @@
+:root {
+  --color-background: #f5efe5;
+  --color-background-soft: rgba(255, 250, 243, 0.78);
+  --color-background-muted: #e8ddcf;
+  --color-surface: rgba(255, 253, 249, 0.84);
+  --color-surface-strong: #fffdf9;
+  --color-line: rgba(109, 77, 57, 0.16);
+  --color-line-strong: rgba(109, 77, 57, 0.28);
+  --color-heading: #2e221c;
+  --color-text: #3d2f27;
+  --color-text-muted: #736055;
+  --color-accent: #b5522e;
+  --color-accent-strong: #8f3b1a;
+  --color-accent-soft: #f1d2c4;
+  --shadow-soft: 0 18px 40px rgba(78, 54, 38, 0.08);
+  --shadow-strong: 0 28px 70px rgba(78, 54, 38, 0.12);
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--color-text);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.86), transparent 34%),
+    radial-gradient(circle at top right, rgba(241, 210, 196, 0.8), transparent 30%),
+    linear-gradient(180deg, #f7efe4 0%, #f2e8db 45%, #efe3d5 100%);
+  line-height: 1.6;
+  font-family:
+    'Segoe UI',
+    'Apple SD Gothic Neo',
+    'Malgun Gothic',
+    'Noto Sans KR',
+    'Segoe UI',
+    sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+#app {
+  min-height: 100vh;
+}

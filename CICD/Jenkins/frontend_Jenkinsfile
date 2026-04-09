@@ -1,0 +1,99 @@
+def runCommand(String unixCommand, String windowsCommand = null) {
+    if (isUnix()) {
+        sh unixCommand
+    } else {
+        bat(windowsCommand ?: unixCommand)
+    }
+}
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+    }
+
+    environment {
+        IMAGE_REPOSITORY = 'your-dockerhub-username/frontend-board-web'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        K8S_NAMESPACE = 'board-app'
+        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
+        KUBECONFIG_CREDENTIALS_ID = 'kubeconfig-file'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Frontend') {
+            steps {
+                script {
+                    runCommand(
+                        'cd frontend && npm ci && npm run build',
+                        'cd frontend && npm ci && npm run build'
+                    )
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    runCommand(
+                        "docker build -f CICD/Jenkins/frontend.Dockerfile -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} -t ${IMAGE_REPOSITORY}:latest .",
+                        "docker build -f CICD\\Jenkins\\frontend.Dockerfile -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} -t ${IMAGE_REPOSITORY}:latest ."
+                    )
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    script {
+                        runCommand(
+                            """
+                            echo "\$DOCKER_PASSWORD" | docker login -u "\$DOCKER_USERNAME" --password-stdin
+                            docker push ${IMAGE_REPOSITORY}:${IMAGE_TAG}
+                            docker push ${IMAGE_REPOSITORY}:latest
+                            docker logout
+                            """.stripIndent().trim(),
+                            """
+                            echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin
+                            docker push ${IMAGE_REPOSITORY}:${IMAGE_TAG}
+                            docker push ${IMAGE_REPOSITORY}:latest
+                            docker logout
+                            """.stripIndent().trim()
+                        )
+                    }
+                }
+            }
+        }
+
+        stage('Deploy To Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: env.KUBECONFIG_CREDENTIALS_ID, variable: 'KUBECONFIG_FILE')]) {
+                    script {
+                        runCommand(
+                            """
+                            kubectl --kubeconfig="\$KUBECONFIG_FILE" apply -f CICD/k8s/namespace.yaml
+                            kubectl --kubeconfig="\$KUBECONFIG_FILE" apply -f CICD/k8s/frontend.yaml
+                            kubectl --kubeconfig="\$KUBECONFIG_FILE" set image deployment/frontend frontend=${IMAGE_REPOSITORY}:${IMAGE_TAG} -n ${K8S_NAMESPACE}
+                            kubectl --kubeconfig="\$KUBECONFIG_FILE" rollout status deployment/frontend -n ${K8S_NAMESPACE} --timeout=180s
+                            """.stripIndent().trim(),
+                            """
+                            kubectl --kubeconfig="%KUBECONFIG_FILE%" apply -f CICD\\k8s\\namespace.yaml
+                            kubectl --kubeconfig="%KUBECONFIG_FILE%" apply -f CICD\\k8s\\frontend.yaml
+                            kubectl --kubeconfig="%KUBECONFIG_FILE%" set image deployment/frontend frontend=${IMAGE_REPOSITORY}:${IMAGE_TAG} -n ${K8S_NAMESPACE}
+                            kubectl --kubeconfig="%KUBECONFIG_FILE%" rollout status deployment/frontend -n ${K8S_NAMESPACE} --timeout=180s
+                            """.stripIndent().trim()
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

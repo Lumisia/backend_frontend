@@ -18,7 +18,7 @@ public class BoardService {
     private final BoardRepository br;
 
     public List<ReadBoard> list() {
-        return br.findAll().stream().map(ReadBoard::from).toList();
+        return br.findAllByOrderByIdxDesc().stream().map(ReadBoard::from).toList();
     }
 
     public ReadBoard read(Long post_idx) {

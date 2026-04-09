@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: board-app
+data:
+  DB_SERVER: org.mariadb.jdbc.Driver
+  DB_URL: jdbc:mariadb://db:3306/web
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: board-app
+type: Opaque
+stringData:
+  DB_ID: root
+  DB_PASS: qwer1234
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: board-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: your-dockerhub-username/frontend-backend-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secret
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 40
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: board-app
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
