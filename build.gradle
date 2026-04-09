@@ -19,14 +19,26 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-    compileOnly 'org.projectlombok:lombok'
+    // 1. webmvc -> web으로 수정 (버전 생략)
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // 2. 맨 뒤에 붙은 콜론(:)이 있다면 반드시 삭제
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+
+    // 3. JPA 버전(3.5.10) 강제 지정 삭제 (부모 4.0.5를 따르도록)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    implementation 'org.mariadb.jdbc:mariadb-java-client:3.3.3'
+
+    // Lombok (버전 생략)
+    compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
-    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testCompileOnly 'org.projectlombok:lombok'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
