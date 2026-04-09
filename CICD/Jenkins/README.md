@@ -15,11 +15,29 @@
 - `kubeconfig-file`
   - Type: Secret file
   - Usage: `kubectl apply` and rollout check
+  - The kubeconfig inside this credential must point to `https://192.100.1.10:32639`
+
+## Required Tools On Jenkins Agent
+
+- Docker
+  - Frontend and backend images are built with Dockerfiles.
+- kubectl
+  - The deployment stage applies the Kubernetes manifests.
+
+The frontend pipeline no longer requires Node.js to be installed directly on the Jenkins host because `npm ci` and `npm run build` are executed inside the Docker image build.
+The backend pipeline also no longer requires Java or Gradle on the Jenkins host because `bootJar` is built inside the backend Docker image build.
+
+## Target Kubernetes Cluster
+
+- Expected API server: `https://192.100.1.10:32639`
+- Example kubeconfig file: `CICD/Jenkins/kubeconfig.example.yaml`
+
+The Jenkins pipelines verify the kubeconfig server URL before running `kubectl apply`.
 
 ## Replace Before Use
 
-- `your-dockerhub-username/frontend-board-web`
-- `your-dockerhub-username/frontend-backend-api`
+- `lumisia/frontend-board-web`
+- `lumisia/frontend-backend-api`
 
 Update those image names in:
 

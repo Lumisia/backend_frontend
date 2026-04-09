@@ -1,0 +1,64 @@
+services:
+  db:
+    image: mariadb:11.4
+    container_name: cicd_db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: web
+      MARIADB_ROOT_PASSWORD: qwer1234
+      TZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:3308:3306"
+    volumes:
+      - cicd_mariadb_data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-pqwer1234"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - board-net
+
+  backend:
+    build:
+      context: ..
+      dockerfile: CICD/Jenkins/backend.Dockerfile
+    image: lumisia/frontend-backend-api:latest
+    container_name: cicd_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_SERVER: org.mariadb.jdbc.Driver
+      DB_URL: jdbc:mariadb://db:3306/web
+      DB_ID: root
+      DB_PASS: qwer1234
+    ports:
+      - "127.0.0.1:8081:8080"
+    networks:
+      - board-net
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: CICD/Jenkins/frontend.Dockerfile
+    image: lumisia/frontend-board-web:latest
+    container_name: cicd_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "${FRONTEND_BIND_IP:-192.100.200.8}:3100:80"
+    networks:
+      - board-net
+
+volumes:
+  cicd_mariadb_data:
+
+networks:
+  board-net:

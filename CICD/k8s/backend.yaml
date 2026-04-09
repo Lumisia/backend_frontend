@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: your-dockerhub-username/frontend-backend-api:latest
+          image: lumisia/frontend-backend-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
